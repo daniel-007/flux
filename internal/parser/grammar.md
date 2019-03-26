@@ -26,11 +26,14 @@ The parser directly implements the following grammar.
     AssignStatement                = "=" Expression .
     ReturnStatement                = "return" Expression .
     ExpressionStatement            = Expression .
-    Expression                     = LogicalExpression .
-    ExpressionSuffix               = { PostfixOperator } { PipeExpressionSuffix } { MultiplicativeExpressionSuffix } { AdditiveExpressionSuffix } { ComparisonExpressionSuffix } { LogicalExpressionSuffix } .
-    LogicalExpression              = UnaryLogicalExpression { LogicalExpressionSuffix } .
-    LogicalExpressionSuffix        = LogicalOperator UnaryLogicalExpression .
-    LogicalOperator                = "and" | "or" .
+    Expression                     = LogicalOrExpression .
+    ExpressionSuffix               = { PostfixOperator } { PipeExpressionSuffix } { MultiplicativeExpressionSuffix } { AdditiveExpressionSuffix } { ComparisonExpressionSuffix } { LogicalAndExpressionSuffix } { LogicalOrExpressionSuffix } .
+    LogicalOrExpression            = LogicalAndExpression { LogicalOrExpressionSuffix } .
+    LogicalAndExpression           = UnaryLogicalExpression { LogicalAndExpressionSuffix } .
+    LogicalOrExpressionSuffix      = LogicalOrOperator LogicalAndExpression .
+    LogicalAndExpressionSuffix     = LogicalAndOperator UnaryLogicalExpression .
+    LogicalOrOperator              = "or" .
+    LogicalAndOperator             = "and" .
     UnaryLogicalExpression         = ComparisonExpression
                                    | UnaryLogicalOperator UnaryLogicalExpression .
     UnaryLogicalOperator           = "not" .

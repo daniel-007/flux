@@ -2105,176 +2105,176 @@ k / l < m + n - o or p() <= q() or r >= s and not t =~ /a/ and u !~ /a/`,
 						BaseNode: base("1:1", "2:72"),
 						Expression: &ast.LogicalExpression{
 							BaseNode: base("1:1", "2:72"),
-							Operator: ast.AndOperator,
+							Operator: ast.OrOperator,
 							Left: &ast.LogicalExpression{
-								BaseNode: base("1:1", "2:59"),
-								Operator: ast.AndOperator,
+								BaseNode: base("1:1", "2:32"),
+								Operator: ast.OrOperator,
 								Left: &ast.LogicalExpression{
-									BaseNode: base("1:1", "2:42"),
-									Operator: ast.OrOperator,
+									BaseNode: base("1:1", "2:18"),
+									Operator: ast.AndOperator,
 									Left: &ast.LogicalExpression{
-										BaseNode: base("1:1", "2:32"),
-										Operator: ast.OrOperator,
+										BaseNode: base("1:1", "1:55"),
+										Operator: ast.AndOperator,
 										Left: &ast.LogicalExpression{
-											BaseNode: base("1:1", "2:18"),
+											BaseNode: base("1:1", "1:41"),
 											Operator: ast.AndOperator,
-											Left: &ast.LogicalExpression{
-												BaseNode: base("1:1", "1:55"),
-												Operator: ast.AndOperator,
-												Left: &ast.LogicalExpression{
-													BaseNode: base("1:1", "1:41"),
-													Operator: ast.AndOperator,
-													Left: &ast.BinaryExpression{
-														BaseNode: base("1:1", "1:27"),
-														Operator: ast.LessThanOperator,
-														Left: &ast.BinaryExpression{
-															BaseNode: base("1:1", "1:21"),
-															Operator: ast.EqualOperator,
-															Left: &ast.CallExpression{
-																BaseNode: base("1:1", "1:4"),
-																Callee: &ast.Identifier{
-																	BaseNode: base("1:1", "1:2"),
-																	Name:     "a",
-																},
-															},
-															Right: &ast.BinaryExpression{
-																BaseNode: base("1:8", "1:21"),
-																Operator: ast.AdditionOperator,
-																Left: &ast.MemberExpression{
-																	BaseNode: base("1:8", "1:11"),
-																	Object: &ast.Identifier{
-																		BaseNode: base("1:8", "1:9"),
-																		Name:     "b",
-																	},
-																	Property: &ast.Identifier{
-																		BaseNode: base("1:10", "1:11"),
-																		Name:     "a",
-																	},
-																},
-																Right: &ast.BinaryExpression{
-																	BaseNode: base("1:14", "1:21"),
-																	Operator: ast.MultiplicationOperator,
-																	Left: &ast.MemberExpression{
-																		BaseNode: base("1:14", "1:17"),
-																		Object: &ast.Identifier{
-																			BaseNode: base("1:14", "1:15"),
-																			Name:     "b",
-																		},
-																		Property: &ast.Identifier{
-																			BaseNode: base("1:16", "1:17"),
-																			Name:     "c",
-																		},
-																	},
-																	Right: &ast.Identifier{
-																		BaseNode: base("1:20", "1:21"),
-																		Name:     "d",
-																	},
-																},
-															},
-														},
-														Right: &ast.IntegerLiteral{
-															BaseNode: base("1:24", "1:27"),
-															Value:    100,
+											Left: &ast.BinaryExpression{
+												BaseNode: base("1:1", "1:27"),
+												Operator: ast.LessThanOperator,
+												Left: &ast.BinaryExpression{
+													BaseNode: base("1:1", "1:21"),
+													Operator: ast.EqualOperator,
+													Left: &ast.CallExpression{
+														BaseNode: base("1:1", "1:4"),
+														Callee: &ast.Identifier{
+															BaseNode: base("1:1", "1:2"),
+															Name:     "a",
 														},
 													},
 													Right: &ast.BinaryExpression{
-														BaseNode: base("1:32", "1:41"),
-														Operator: ast.NotEqualOperator,
-														Left: &ast.Identifier{
-															BaseNode: base("1:32", "1:33"),
-															Name:     "e",
-														},
-														Right: &ast.IndexExpression{
-															BaseNode: base("1:37", "1:41"),
-															Array: &ast.Identifier{
-																BaseNode: base("1:37", "1:38"),
-																Name:     "f",
+														BaseNode: base("1:8", "1:21"),
+														Operator: ast.AdditionOperator,
+														Left: &ast.MemberExpression{
+															BaseNode: base("1:8", "1:11"),
+															Object: &ast.Identifier{
+																BaseNode: base("1:8", "1:9"),
+																Name:     "b",
 															},
-															Index: &ast.Identifier{
-																BaseNode: base("1:39", "1:40"),
-																Name:     "g",
+															Property: &ast.Identifier{
+																BaseNode: base("1:10", "1:11"),
+																Name:     "a",
+															},
+														},
+														Right: &ast.BinaryExpression{
+															BaseNode: base("1:14", "1:21"),
+															Operator: ast.MultiplicationOperator,
+															Left: &ast.MemberExpression{
+																BaseNode: base("1:14", "1:17"),
+																Object: &ast.Identifier{
+																	BaseNode: base("1:14", "1:15"),
+																	Name:     "b",
+																},
+																Property: &ast.Identifier{
+																	BaseNode: base("1:16", "1:17"),
+																	Name:     "c",
+																},
+															},
+															Right: &ast.Identifier{
+																BaseNode: base("1:20", "1:21"),
+																Name:     "d",
 															},
 														},
 													},
 												},
-												Right: &ast.BinaryExpression{
-													BaseNode: base("1:46", "1:55"),
-													Operator: ast.GreaterThanOperator,
-													Left: &ast.Identifier{
-														BaseNode: base("1:46", "1:47"),
-														Name:     "h",
-													},
-													Right: &ast.BinaryExpression{
-														BaseNode: base("1:50", "1:55"),
-														Operator: ast.MultiplicationOperator,
-														Left: &ast.Identifier{
-															BaseNode: base("1:50", "1:51"),
-															Name:     "i",
-														},
-														Right: &ast.Identifier{
-															BaseNode: base("1:54", "1:55"),
-															Name:     "j",
-														},
-													},
+												Right: &ast.IntegerLiteral{
+													BaseNode: base("1:24", "1:27"),
+													Value:    100,
 												},
 											},
 											Right: &ast.BinaryExpression{
-												BaseNode: base("2:1", "2:18"),
-												Operator: ast.LessThanOperator,
-												Left: &ast.BinaryExpression{
-													BaseNode: base("2:1", "2:6"),
-													Operator: ast.DivisionOperator,
-													Left: &ast.Identifier{
-														BaseNode: base("2:1", "2:2"),
-														Name:     "k",
-													},
-													Right: &ast.Identifier{
-														BaseNode: base("2:5", "2:6"),
-														Name:     "l",
-													},
+												BaseNode: base("1:32", "1:41"),
+												Operator: ast.NotEqualOperator,
+												Left: &ast.Identifier{
+													BaseNode: base("1:32", "1:33"),
+													Name:     "e",
 												},
-												Right: &ast.BinaryExpression{
-													BaseNode: base("2:9", "2:18"),
-													Operator: ast.SubtractionOperator,
-													Left: &ast.BinaryExpression{
-														BaseNode: base("2:9", "2:14"),
-														Operator: ast.AdditionOperator,
-														Left: &ast.Identifier{
-															BaseNode: base("2:9", "2:10"),
-															Name:     "m",
-														},
-														Right: &ast.Identifier{
-															BaseNode: base("2:13", "2:14"),
-															Name:     "n",
-														},
+												Right: &ast.IndexExpression{
+													BaseNode: base("1:37", "1:41"),
+													Array: &ast.Identifier{
+														BaseNode: base("1:37", "1:38"),
+														Name:     "f",
 													},
-													Right: &ast.Identifier{
-														BaseNode: base("2:17", "2:18"),
-														Name:     "o",
+													Index: &ast.Identifier{
+														BaseNode: base("1:39", "1:40"),
+														Name:     "g",
 													},
 												},
 											},
 										},
 										Right: &ast.BinaryExpression{
-											BaseNode: base("2:22", "2:32"),
-											Operator: ast.LessThanEqualOperator,
-											Left: &ast.CallExpression{
-												BaseNode: base("2:22", "2:25"),
-												Callee: &ast.Identifier{
-													BaseNode: base("2:22", "2:23"),
-													Name:     "p",
-												},
+											BaseNode: base("1:46", "1:55"),
+											Operator: ast.GreaterThanOperator,
+											Left: &ast.Identifier{
+												BaseNode: base("1:46", "1:47"),
+												Name:     "h",
 											},
-											Right: &ast.CallExpression{
-												BaseNode: base("2:29", "2:32"),
-												Callee: &ast.Identifier{
-													BaseNode: base("2:29", "2:30"),
-													Name:     "q",
+											Right: &ast.BinaryExpression{
+												BaseNode: base("1:50", "1:55"),
+												Operator: ast.MultiplicationOperator,
+												Left: &ast.Identifier{
+													BaseNode: base("1:50", "1:51"),
+													Name:     "i",
+												},
+												Right: &ast.Identifier{
+													BaseNode: base("1:54", "1:55"),
+													Name:     "j",
 												},
 											},
 										},
 									},
 									Right: &ast.BinaryExpression{
+										BaseNode: base("2:1", "2:18"),
+										Operator: ast.LessThanOperator,
+										Left: &ast.BinaryExpression{
+											BaseNode: base("2:1", "2:6"),
+											Operator: ast.DivisionOperator,
+											Left: &ast.Identifier{
+												BaseNode: base("2:1", "2:2"),
+												Name:     "k",
+											},
+											Right: &ast.Identifier{
+												BaseNode: base("2:5", "2:6"),
+												Name:     "l",
+											},
+										},
+										Right: &ast.BinaryExpression{
+											BaseNode: base("2:9", "2:18"),
+											Operator: ast.SubtractionOperator,
+											Left: &ast.BinaryExpression{
+												BaseNode: base("2:9", "2:14"),
+												Operator: ast.AdditionOperator,
+												Left: &ast.Identifier{
+													BaseNode: base("2:9", "2:10"),
+													Name:     "m",
+												},
+												Right: &ast.Identifier{
+													BaseNode: base("2:13", "2:14"),
+													Name:     "n",
+												},
+											},
+											Right: &ast.Identifier{
+												BaseNode: base("2:17", "2:18"),
+												Name:     "o",
+											},
+										},
+									},
+								},
+								Right: &ast.BinaryExpression{
+									BaseNode: base("2:22", "2:32"),
+									Operator: ast.LessThanEqualOperator,
+									Left: &ast.CallExpression{
+										BaseNode: base("2:22", "2:25"),
+										Callee: &ast.Identifier{
+											BaseNode: base("2:22", "2:23"),
+											Name:     "p",
+										},
+									},
+									Right: &ast.CallExpression{
+										BaseNode: base("2:29", "2:32"),
+										Callee: &ast.Identifier{
+											BaseNode: base("2:29", "2:30"),
+											Name:     "q",
+										},
+									},
+								},
+							},
+							Right: &ast.LogicalExpression{
+								BaseNode: base("2:36", "2:72"),
+								Operator: ast.AndOperator,
+								Left: &ast.LogicalExpression{
+									BaseNode: base("2:36", "2:59"),
+									Operator: ast.AndOperator,
+									Left: &ast.BinaryExpression{
 										BaseNode: base("2:36", "2:42"),
 										Operator: ast.GreaterThanEqualOperator,
 										Left: &ast.Identifier{
@@ -2286,34 +2286,34 @@ k / l < m + n - o or p() <= q() or r >= s and not t =~ /a/ and u !~ /a/`,
 											Name:     "s",
 										},
 									},
-								},
-								Right: &ast.UnaryExpression{
-									BaseNode: base("2:47", "2:59"),
-									Operator: ast.NotOperator,
-									Argument: &ast.BinaryExpression{
-										BaseNode: base("2:51", "2:59"),
-										Operator: ast.RegexpMatchOperator,
-										Left: &ast.Identifier{
-											BaseNode: base("2:51", "2:52"),
-											Name:     "t",
-										},
-										Right: &ast.RegexpLiteral{
-											BaseNode: base("2:56", "2:59"),
-											Value:    regexp.MustCompile(`a`),
+									Right: &ast.UnaryExpression{
+										BaseNode: base("2:47", "2:59"),
+										Operator: ast.NotOperator,
+										Argument: &ast.BinaryExpression{
+											BaseNode: base("2:51", "2:59"),
+											Operator: ast.RegexpMatchOperator,
+											Left: &ast.Identifier{
+												BaseNode: base("2:51", "2:52"),
+												Name:     "t",
+											},
+											Right: &ast.RegexpLiteral{
+												BaseNode: base("2:56", "2:59"),
+												Value:    regexp.MustCompile("a"),
+											},
 										},
 									},
 								},
-							},
-							Right: &ast.BinaryExpression{
-								BaseNode: base("2:64", "2:72"),
-								Operator: ast.NotRegexpMatchOperator,
-								Left: &ast.Identifier{
-									BaseNode: base("2:64", "2:65"),
-									Name:     "u",
-								},
-								Right: &ast.RegexpLiteral{
-									BaseNode: base("2:69", "2:72"),
-									Value:    regexp.MustCompile(`a`),
+								Right: &ast.BinaryExpression{
+									BaseNode: base("2:64", "2:72"),
+									Operator: ast.NotRegexpMatchOperator,
+									Left: &ast.Identifier{
+										BaseNode: base("2:64", "2:65"),
+										Name:     "u",
+									},
+									Right: &ast.RegexpLiteral{
+										BaseNode: base("2:69", "2:72"),
+										Value:    regexp.MustCompile("a"),
+									},
 								},
 							},
 						},
