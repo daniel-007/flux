@@ -10,12 +10,8 @@ import (
 )
 
 var skip = map[string]string{
-	"array_expr":            "without pars -> bad syntax, with pars formatting removes them",
-	"conditional":           "how is a conditional expression defined in spec?",
-	"multi_var_decl":        "how is a variable declaration with multiple declarations represented?",
-	"logic":                 "the AST created for logic ops is wrong (https://github.com/influxdata/flux/issues/1077)",
-	"logic with comparison": "the AST created for logic ops is wrong (https://github.com/influxdata/flux/issues/1077)",
-	"logic and math":        "the AST created for logic ops is wrong (https://github.com/influxdata/flux/issues/1077)",
+	"array_expr":  "without pars -> bad syntax, with pars formatting removes them",
+	"conditional": "how is a conditional expression defined in spec?",
 }
 
 type formatTestCase struct {
@@ -70,10 +66,6 @@ func TestFormat_Nodes(t *testing.T) {
 		{
 			name:   "fn_call",
 			script: `add(a: 1, b: 2)`,
-		},
-		{
-			name:   "multi_var_decl",
-			script: `var(a = 1, b = 2, c = 3)`,
 		},
 		{
 			name:   "object",

@@ -122,7 +122,7 @@ var opPrecedence = map[int]int{
 	getIntForLOp(OrOperator):  7,
 }
 
-func (f *formatter) formatChildWithPars(parent, child Node) {
+func (f *formatter) formatChildWithParens(parent, child Node) {
 	var pvp, pvc int
 	switch parent := parent.(type) {
 	case *BinaryExpression:
@@ -360,7 +360,7 @@ func (f *formatter) formatFunctionExpression(n *FunctionExpression) {
 func (f *formatter) formatUnaryExpression(n *UnaryExpression) {
 	f.writeString(n.Operator.String())
 	f.writeRune(' ')
-	f.formatChildWithPars(n, n.Argument)
+	f.formatChildWithParens(n, n.Argument)
 }
 
 func (f *formatter) formatBinaryExpression(n *BinaryExpression) {
@@ -369,19 +369,18 @@ func (f *formatter) formatBinaryExpression(n *BinaryExpression) {
 
 func (f *formatter) formatLogicalExpression(n *LogicalExpression) {
 	f.formatBinary(n.Operator.String(), n, n.Left, n.Right)
-
 }
 
 func (f *formatter) formatBinary(op string, parent, left, right Node) {
-	f.formatChildWithPars(parent, left)
+	f.formatChildWithParens(parent, left)
 	f.writeRune(' ')
 	f.writeString(op)
 	f.writeRune(' ')
-	f.formatChildWithPars(parent, right)
+	f.formatChildWithParens(parent, right)
 }
 
 func (f *formatter) formatCallExpression(n *CallExpression) {
-	f.formatChildWithPars(n, n.Callee)
+	f.formatChildWithParens(n, n.Callee)
 	f.writeRune('(')
 
 	sep := ", "
@@ -420,7 +419,7 @@ func (f *formatter) formatConditionalExpression(n *ConditionalExpression) {
 }
 
 func (f *formatter) formatMemberExpression(n *MemberExpression) {
-	f.formatChildWithPars(n, n.Object)
+	f.formatChildWithParens(n, n.Object)
 
 	if _, ok := n.Property.(*StringLiteral); ok {
 		f.writeRune('[')
@@ -433,7 +432,7 @@ func (f *formatter) formatMemberExpression(n *MemberExpression) {
 }
 
 func (f *formatter) formatIndexExpression(n *IndexExpression) {
-	f.formatChildWithPars(n, n.Array)
+	f.formatChildWithParens(n, n.Array)
 	f.writeRune('[')
 	f.formatNode(n.Index)
 	f.writeRune(']')
