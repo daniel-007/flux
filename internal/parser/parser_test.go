@@ -16,6 +16,10 @@ import (
 	"github.com/influxdata/flux/internal/token"
 )
 
+var skip = map[string]string{
+	"two logical operations with parens": "the parser merges the two statements: https://github.com/influxdata/flux/issues/1102",
+}
+
 var CompareOptions = []cmp.Option{
 	cmp.Transformer("", func(re *regexp.Regexp) string {
 		if re == nil {
@@ -2322,22 +2326,10 @@ k / l < m + n - o or p() <= q() or r >= s and not t =~ /a/ and u !~ /a/`,
 			},
 		},
 		{
-			name: "logical operators precedence",
-			raw: `not a or b
-a or not b
-not a and b
-a and not b
-a and b or c
-a or b and c
-
-not (a or b)
-not (a and b)`,
-			/*
-				(a or b) and c
-				a and (b or c)`,
-			*/
+			name: "logical operators precedence 1",
+			raw:  `not a or b`,
 			want: &ast.File{
-				BaseNode: base("1:1", "9:13"),
+				BaseNode: base("1:1", "1:11"),
 				Body: []ast.Statement{
 					&ast.ExpressionStatement{
 						BaseNode: base("1:1", "1:11"),
@@ -2358,195 +2350,326 @@ not (a and b)`,
 							},
 						},
 					},
+				},
+			},
+		},
+		{
+			name: "logical operators precedence 2",
+			raw:  `a or not b`,
+			want: &ast.File{
+				BaseNode: base("1:1", "1:11"),
+				Body: []ast.Statement{
 					&ast.ExpressionStatement{
-						BaseNode: base("2:1", "2:11"),
+						BaseNode: base("1:1", "1:11"),
 						Expression: &ast.LogicalExpression{
-							BaseNode: base("2:1", "2:11"),
+							BaseNode: base("1:1", "1:11"),
 							Operator: ast.OrOperator,
 							Left: &ast.Identifier{
-								BaseNode: base("2:1", "2:2"),
+								BaseNode: base("1:1", "1:2"),
 								Name:     "a",
 							},
 							Right: &ast.UnaryExpression{
-								BaseNode: base("2:6", "2:11"),
+								BaseNode: base("1:6", "1:11"),
 								Operator: ast.NotOperator,
 								Argument: &ast.Identifier{
-									BaseNode: base("2:10", "2:11"),
+									BaseNode: base("1:10", "1:11"),
 									Name:     "b",
 								},
 							},
 						},
 					},
+				},
+			},
+		},
+		{
+			name: "logical operators precedence 3",
+			raw:  `not a and b`,
+			want: &ast.File{
+				BaseNode: base("1:1", "1:12"),
+				Body: []ast.Statement{
 					&ast.ExpressionStatement{
-						BaseNode: base("3:1", "3:12"),
+						BaseNode: base("1:1", "1:12"),
 						Expression: &ast.LogicalExpression{
-							BaseNode: base("3:1", "3:12"),
+							BaseNode: base("1:1", "1:12"),
 							Operator: ast.AndOperator,
 							Left: &ast.UnaryExpression{
-								BaseNode: base("3:1", "3:6"),
+								BaseNode: base("1:1", "1:6"),
 								Operator: ast.NotOperator,
 								Argument: &ast.Identifier{
-									BaseNode: base("3:5", "3:6"),
+									BaseNode: base("1:5", "1:6"),
 									Name:     "a",
 								},
 							},
 							Right: &ast.Identifier{
-								BaseNode: base("3:11", "3:12"),
+								BaseNode: base("1:11", "1:12"),
 								Name:     "b",
 							},
 						},
 					},
+				},
+			},
+		},
+		{
+			name: "logical operators precedence 4",
+			raw:  `a and not b`,
+			want: &ast.File{
+				BaseNode: base("1:1", "1:12"),
+				Body: []ast.Statement{
 					&ast.ExpressionStatement{
-						BaseNode: base("4:1", "4:12"),
+						BaseNode: base("1:1", "1:12"),
 						Expression: &ast.LogicalExpression{
-							BaseNode: base("4:1", "4:12"),
+							BaseNode: base("1:1", "1:12"),
 							Operator: ast.AndOperator,
 							Left: &ast.Identifier{
-								BaseNode: base("4:1", "4:2"),
+								BaseNode: base("1:1", "1:2"),
 								Name:     "a",
 							},
 							Right: &ast.UnaryExpression{
-								BaseNode: base("4:7", "4:12"),
+								BaseNode: base("1:7", "1:12"),
 								Operator: ast.NotOperator,
 								Argument: &ast.Identifier{
-									BaseNode: base("4:11", "4:12"),
+									BaseNode: base("1:11", "1:12"),
 									Name:     "b",
 								},
 							},
 						},
 					},
+				},
+			},
+		},
+		{
+			name: "logical operators precedence 5",
+			raw:  `a and b or c`,
+			want: &ast.File{
+				BaseNode: base("1:1", "1:13"),
+				Body: []ast.Statement{
 					&ast.ExpressionStatement{
-						BaseNode: base("5:1", "5:13"),
+						BaseNode: base("1:1", "1:13"),
 						Expression: &ast.LogicalExpression{
-							BaseNode: base("5:1", "5:13"),
+							BaseNode: base("1:1", "1:13"),
 							Operator: ast.OrOperator,
 							Left: &ast.LogicalExpression{
-								BaseNode: base("5:1", "5:8"),
+								BaseNode: base("1:1", "1:8"),
 								Operator: ast.AndOperator,
 								Left: &ast.Identifier{
-									BaseNode: base("5:1", "5:2"),
+									BaseNode: base("1:1", "1:2"),
 									Name:     "a",
 								},
 								Right: &ast.Identifier{
-									BaseNode: base("5:7", "5:8"),
+									BaseNode: base("1:7", "1:8"),
 									Name:     "b",
 								},
 							},
 							Right: &ast.Identifier{
-								BaseNode: base("5:12", "5:13"),
+								BaseNode: base("1:12", "1:13"),
 								Name:     "c",
 							},
 						},
 					},
+				},
+			},
+		},
+		{
+			name: "logical operators precedence 6",
+			raw:  `a or b and c`,
+			want: &ast.File{
+				BaseNode: base("1:1", "1:13"),
+				Body: []ast.Statement{
 					&ast.ExpressionStatement{
-						BaseNode: base("6:1", "6:13"),
+						BaseNode: base("1:1", "1:13"),
 						Expression: &ast.LogicalExpression{
-							BaseNode: base("6:1", "6:13"),
+							BaseNode: base("1:1", "1:13"),
 							Operator: ast.OrOperator,
 							Left: &ast.Identifier{
-								BaseNode: base("6:1", "6:2"),
+								BaseNode: base("1:1", "1:2"),
 								Name:     "a",
 							},
 							Right: &ast.LogicalExpression{
-								BaseNode: base("6:6", "6:13"),
+								BaseNode: base("1:6", "1:13"),
 								Operator: ast.AndOperator,
 								Left: &ast.Identifier{
-									BaseNode: base("6:6", "6:7"),
+									BaseNode: base("1:6", "1:7"),
 									Name:     "b",
 								},
 								Right: &ast.Identifier{
-									BaseNode: base("6:12", "6:13"),
+									BaseNode: base("1:12", "1:13"),
 									Name:     "c",
 								},
 							},
 						},
 					},
+				},
+			},
+		},
+		{
+			name: "logical operators precedence 7",
+			raw:  `not (a or b)`,
+			want: &ast.File{
+				BaseNode: base("1:1", "1:12"),
+				Body: []ast.Statement{
 					&ast.ExpressionStatement{
-						BaseNode: base("8:1", "8:12"),
+						BaseNode: base("1:1", "1:12"),
 						Expression: &ast.UnaryExpression{
-							BaseNode: base("8:1", "8:12"),
+							BaseNode: base("1:1", "1:12"),
 							Operator: ast.NotOperator,
 							Argument: &ast.LogicalExpression{
-								BaseNode: base("8:6", "8:12"),
+								BaseNode: base("1:6", "1:12"),
 								Operator: ast.OrOperator,
 								Left: &ast.Identifier{
-									BaseNode: base("8:6", "8:7"),
+									BaseNode: base("1:6", "1:7"),
 									Name:     "a",
 								},
 								Right: &ast.Identifier{
-									BaseNode: base("8:11", "8:12"),
+									BaseNode: base("1:11", "1:12"),
+									Name:     "b",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "logical operators precedence 8",
+			raw:  `not (a and b)`,
+			want: &ast.File{
+				BaseNode: base("1:1", "1:13"),
+				Body: []ast.Statement{
+					&ast.ExpressionStatement{
+						BaseNode: base("1:1", "1:13"),
+						Expression: &ast.UnaryExpression{
+							BaseNode: base("1:1", "1:13"),
+							Operator: ast.NotOperator,
+							Argument: &ast.LogicalExpression{
+								BaseNode: base("1:6", "1:13"),
+								Operator: ast.AndOperator,
+								Left: &ast.Identifier{
+									BaseNode: base("1:6", "1:7"),
+									Name:     "a",
+								},
+								Right: &ast.Identifier{
+									BaseNode: base("1:12", "1:13"),
+									Name:     "b",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "logical operators precedence 9",
+			raw:  `(a or b) and c`,
+			want: &ast.File{
+				BaseNode: base("1:1", "1:15"),
+				Body: []ast.Statement{
+					&ast.ExpressionStatement{
+						BaseNode: base("1:2", "1:15"),
+						Expression: &ast.LogicalExpression{
+							BaseNode: base("1:2", "1:15"),
+							Operator: ast.AndOperator,
+							Left: &ast.LogicalExpression{
+								BaseNode: base("1:2", "1:8"),
+								Operator: ast.OrOperator,
+								Left: &ast.Identifier{
+									BaseNode: base("1:2", "1:3"),
+									Name:     "a",
+								},
+								Right: &ast.Identifier{
+									BaseNode: base("1:7", "1:8"),
+									Name:     "b",
+								},
+							},
+							Right: &ast.Identifier{
+								BaseNode: base("1:14", "1:15"),
+								Name:     "c",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "logical operators precedence 10",
+			raw:  `a and (b or c)`,
+			want: &ast.File{
+				BaseNode: base("1:1", "1:14"),
+				Body: []ast.Statement{
+					&ast.ExpressionStatement{
+						BaseNode: base("1:1", "1:14"),
+						Expression: &ast.LogicalExpression{
+							BaseNode: base("1:1", "1:14"),
+							Operator: ast.AndOperator,
+							Left: &ast.Identifier{
+								BaseNode: base("1:1", "1:2"),
+								Name:     "a",
+							},
+							Right: &ast.LogicalExpression{
+								BaseNode: base("1:8", "1:14"),
+								Operator: ast.OrOperator,
+								Left: &ast.Identifier{
+									BaseNode: base("1:8", "1:9"),
+									Name:     "b",
+								},
+								Right: &ast.Identifier{
+									BaseNode: base("1:13", "1:14"),
+									Name:     "c",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "two logical operations with parens",
+			raw: `not (a and b)
+(a or b) and c`,
+			want: &ast.File{
+				BaseNode: base("1:1", "2:15"),
+				Body: []ast.Statement{
+					&ast.ExpressionStatement{
+						BaseNode: base("1:1", "1:13"),
+						Expression: &ast.UnaryExpression{
+							BaseNode: base("1:1", "1:13"),
+							Operator: ast.NotOperator,
+							Argument: &ast.LogicalExpression{
+								BaseNode: base("1:6", "1:13"),
+								Operator: ast.AndOperator,
+								Left: &ast.Identifier{
+									BaseNode: base("1:6", "1:7"),
+									Name:     "a",
+								},
+								Right: &ast.Identifier{
+									BaseNode: base("1:12", "1:13"),
 									Name:     "b",
 								},
 							},
 						},
 					},
 					&ast.ExpressionStatement{
-						BaseNode: base("9:1", "9:13"),
-						Expression: &ast.UnaryExpression{
-							BaseNode: base("9:1", "9:13"),
-							Operator: ast.NotOperator,
-							Argument: &ast.LogicalExpression{
-								BaseNode: base("9:6", "9:13"),
-								Operator: ast.AndOperator,
+						BaseNode: base("2:2", "2:15"),
+						Expression: &ast.LogicalExpression{
+							BaseNode: base("2:2", "2:15"),
+							Operator: ast.AndOperator,
+							Left: &ast.LogicalExpression{
+								BaseNode: base("2:2", "2:8"),
+								Operator: ast.OrOperator,
 								Left: &ast.Identifier{
-									BaseNode: base("9:6", "9:7"),
+									BaseNode: base("2:2", "2:3"),
 									Name:     "a",
 								},
 								Right: &ast.Identifier{
-									BaseNode: base("9:12", "9:13"),
+									BaseNode: base("2:7", "2:8"),
 									Name:     "b",
 								},
 							},
+							Right: &ast.Identifier{
+								BaseNode: base("2:14", "2:15"),
+								Name:     "c",
+							},
 						},
 					},
-					/*
-						&ast.ExpressionStatement{
-							BaseNode: base("10:2", "10:15"),
-							Expression: &ast.LogicalExpression{
-								BaseNode: base("10:2", "10:15"),
-								Operator: ast.AndOperator,
-								Left: &ast.LogicalExpression{
-									BaseNode: base("10:2", "10:8"),
-									Operator: ast.OrOperator,
-									Left: &ast.Identifier{
-										BaseNode: base("10:2", "10:3"),
-										Name:     "a",
-									},
-									Right: &ast.Identifier{
-										BaseNode: base("10:7", "10:8"),
-										Name:     "b",
-									},
-								},
-								Right: &ast.Identifier{
-									BaseNode: base("10:14", "10:15"),
-									Name:     "c",
-								},
-							},
-						},
-						&ast.ExpressionStatement{
-							BaseNode: base("11:1", "11:14"),
-							Expression: &ast.LogicalExpression{
-								BaseNode: base("11:1", "11:14"),
-								Operator: ast.AndOperator,
-								Left: &ast.Identifier{
-									BaseNode: base("11:1", "11:1"),
-									Name:     "a",
-								},
-								Right: &ast.LogicalExpression{
-									BaseNode: base("11:8", "11:14"),
-									Operator: ast.OrOperator,
-									Left: &ast.Identifier{
-										BaseNode: base("11:8", "11:9"),
-										Name:     "b",
-									},
-									Right: &ast.Identifier{
-										BaseNode: base("11:13", "11:14"),
-										Name:     "c",
-									},
-								},
-							},
-						},
-					*/
 				},
 			},
 		},
@@ -4533,6 +4656,10 @@ string"
 		},
 	} {
 		runFn(tt.name, func(tb testing.TB) {
+			if reason, ok := skip[tt.name]; ok {
+				tb.Skip(reason)
+			}
+
 			defer func() {
 				if err := recover(); err != nil {
 					errStr := fmt.Sprintf("%s", err)
