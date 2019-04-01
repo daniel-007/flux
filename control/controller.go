@@ -19,12 +19,15 @@ package control
 
 import (
 	"context"
+	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/influxdata/flux"
 	"github.com/influxdata/flux/memory"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
@@ -32,10 +35,9 @@ import (
 // Controller provides a central location to manage all incoming queries.
 // The controller is responsible for compiling, queueing, and executing queries.
 type Controller struct {
-	newQueries chan *Query
-	queriesMu  sync.RWMutex
-	queries    map[QueryID]*Query
-	queryDone  chan *Query
+	lastID    uint64
+	queriesMu sync.RWMutex
+	queries   map[QueryID]*Query
 
 	shutdownCtx context.Context
 	shutdown    func()
@@ -83,13 +85,142 @@ func New(c Config) *Controller {
 // Query submits a query for execution returning immediately.
 // Done must be called on any returned Query objects.
 func (c *Controller) Query(ctx context.Context, compiler flux.Compiler) (flux.Query, error) {
-	prog, err := compiler.Compile(ctx)
+	q, err := c.createQuery(ctx, compiler.CompilerType())
 	if err != nil {
 		return nil, err
 	}
 
-	a := new(memory.Allocator)
-	return prog.Start(ctx, a)
+	if err := c.compileQuery(q, compiler); err != nil {
+		q.setErr(err)
+		c.countQueryRequest(q, labelCompileError)
+		return nil, q.Err()
+	}
+	if err := c.enqueueQuery(q); err != nil {
+		q.setErr(err)
+		c.countQueryRequest(q, labelQueueError)
+		return nil, q.Err()
+	}
+	c.countQueryRequest(q, labelSuccess)
+	return q, nil
+}
+
+func (c *Controller) createQuery(ctx context.Context, ct flux.CompilerType) (*Query, error) {
+	select {
+	case <-c.shutdownCtx.Done():
+		return nil, errors.New("query controller shutdown")
+	default:
+		// Attempt to create the query.
+	}
+
+	id := c.nextID()
+	labelValues := make([]string, len(c.labelKeys))
+	compileLabelValues := make([]string, len(c.labelKeys)+1)
+	for i, k := range c.labelKeys {
+		value := ctx.Value(k)
+		var str string
+		switch v := value.(type) {
+		case string:
+			str = v
+		case fmt.Stringer:
+			str = v.String()
+		}
+		labelValues[i] = str
+		compileLabelValues[i] = str
+	}
+	compileLabelValues[len(compileLabelValues)-1] = string(ct)
+
+	cctx, cancel := context.WithCancel(ctx)
+	parentSpan, parentCtx := StartSpanFromContext(
+		cctx,
+		"all",
+		c.metrics.allDur.WithLabelValues(labelValues...),
+		c.metrics.all.WithLabelValues(labelValues...),
+	)
+	q := &Query{
+		id:                 id,
+		labelValues:        labelValues,
+		compileLabelValues: compileLabelValues,
+		state:              Created,
+		c:                  c,
+		results:            make(chan flux.Result),
+		parentCtx:          parentCtx,
+		parentSpan:         parentSpan,
+		cancel:             cancel,
+	}
+
+	c.queriesMu.Lock()
+	defer c.queriesMu.Unlock()
+	select {
+	case <-c.shutdownCtx.Done():
+		// Query controller was shutdown between when we started
+		// creating the query and ending it.
+		err := errors.New("query controller shutdown")
+		q.setErr(err)
+		return nil, err
+	default:
+		c.queries[id] = q
+	}
+	return q, nil
+}
+
+func (c *Controller) nextID() QueryID {
+	nextID := atomic.AddUint64(&c.lastID, 1)
+	return QueryID(nextID)
+}
+
+func (c *Controller) countQueryRequest(q *Query, result requestsLabel) {
+	l := len(q.labelValues)
+	lvs := make([]string, l+1)
+	copy(lvs, q.labelValues)
+	lvs[l] = string(result)
+	c.metrics.requests.WithLabelValues(lvs...).Inc()
+}
+
+func (c *Controller) compileQuery(q *Query, compiler flux.Compiler) error {
+	if !q.tryCompile() {
+		return errors.New("failed to transition query to compiling state")
+	}
+
+	prog, err := compiler.Compile(q.currentCtx)
+	if err != nil {
+		return errors.Wrap(err, "compilation failed")
+	}
+	q.program = prog
+	return nil
+}
+
+func (c *Controller) enqueueQuery(q *Query) error {
+	if !q.tryQueue() {
+		return errors.New("failed to transition query to queueing state")
+	}
+
+	// TODO(jsternberg): We should have a real queue! It should only
+	// start the query when we know we have a minimum amount of memory
+	// available and at least one goroutine we can use. Since we don't
+	// implement a queue at the moment, the rest just fakes it by
+	// immediately switching to the execute state and then calling
+	// start which should start the query in a new goroutine and return
+	// the underlying results.
+	if !q.tryExec() {
+		return errors.New("failed to transition query into executing state")
+	}
+
+	// TODO(jsternberg): Introduce memory restrictions.
+	q.alloc = new(memory.Allocator)
+	exec, err := q.program.Start(q.currentCtx, q.alloc)
+	if err != nil {
+		q.setErr(err)
+		return nil
+	}
+	q.exec = exec
+	go q.pump(exec)
+	return nil
+}
+
+func (c *Controller) finish(q *Query) {
+	c.queriesMu.Lock()
+	delete(c.queries, q.id)
+	c.queriesMu.Unlock()
 }
 
 // Queries reports the active queries.
@@ -108,27 +239,16 @@ func (c *Controller) Queries() []*Query {
 // This will return once the Controller's run loop has been exited and all
 // queries have been finished or until the Context has been canceled.
 func (c *Controller) Shutdown(ctx context.Context) error {
-	return nil
-	// // Initiate the shutdown procedure by signaling to the run thread.
-	// c.shutdown()
-	//
-	// // Wait for the run loop to exit.
-	// select {
-	// case <-c.done:
-	// 	return nil
-	// case <-ctx.Done():
-	// 	c.CancelAll()
-	// 	return ctx.Err()
-	// }
-}
+	// Initiate the shutdown procedure by signaling to the run thread.
+	c.shutdown()
 
-// CancelAll cancels all executing queries.
-func (c *Controller) CancelAll() {
-	c.queriesMu.RLock()
-	for _, q := range c.queries {
-		q.Cancel()
+	// Wait for the run loop to exit.
+	select {
+	case <-c.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
-	c.queriesMu.RUnlock()
 }
 
 // PrometheusCollectors satisifies the prom.PrometheusCollector interface.
@@ -145,9 +265,6 @@ type Query struct {
 
 	c *Controller
 
-	ready  chan flux.Result
-	metaCh <-chan flux.Metadata
-
 	// query state. The stateMu protects access for the group below.
 	stateMu sync.RWMutex
 	state   State
@@ -162,7 +279,10 @@ type Query struct {
 	concurrency int
 	memory      int64
 
-	alloc *memory.Allocator
+	program flux.Program
+	exec    flux.Query
+	results chan flux.Result
+	alloc   *memory.Allocator
 }
 
 // ID reports an ephemeral unique ID for the query.
@@ -186,12 +306,15 @@ func (q *Query) Cancel() {
 // The query may also have an error during execution so the Err()
 // function should be used to check if an error happened.
 func (q *Query) Results() <-chan flux.Result {
-	return q.ready
+	return q.results
 }
 
 // Done signals to the Controller that this query is no longer
 // being used and resources related to the query may be freed.
 //
+// The Results method must have been completely read before calling
+// this method either by the query executing, being canceled, or
+// an error occurring.
 // The Results method must have returned a result before calling
 // this method either by the query executing, being canceled, or
 // an error occurring.
@@ -199,19 +322,16 @@ func (q *Query) Done() {
 	// We are not considered to be in the run loop anymore once
 	// this is called.
 	q.done.Do(func() {
+		if q.exec != nil {
+			q.exec.Done()
+			stats := q.exec.Statistics()
+			q.stats.Metadata = stats.Metadata
+		}
+
 		q.stateMu.Lock()
 		q.transitionTo(Finished)
-
-		// Read from the metadata channel. We only do this in this location so no locking
-		// is needed.
-		meta := make(flux.Metadata)
-		for md := range q.metaCh {
-			meta.AddAll(md)
-		}
-		q.stats.Metadata = meta
 		q.stateMu.Unlock()
-
-		q.c.queryDone <- q
+		q.c.finish(q)
 	})
 }
 
@@ -291,10 +411,6 @@ TRANSITION:
 			q.stats.CompileDuration += q.currentSpan.Duration
 		case Queueing:
 			q.stats.QueueDuration += q.currentSpan.Duration
-		case Planning:
-			q.stats.PlanDuration += q.currentSpan.Duration
-		case Requeueing:
-			q.stats.RequeueDuration += q.currentSpan.Duration
 		case Executing:
 			q.stats.ExecuteDuration += q.currentSpan.Duration
 		}
@@ -331,10 +447,6 @@ TRANSITION:
 		labelValues = q.compileLabelValues
 	case Queueing:
 		dur, gauge = q.c.metrics.queueingDur, q.c.metrics.queueing
-	case Planning:
-		dur, gauge = q.c.metrics.planningDur, q.c.metrics.planning
-	case Requeueing:
-		dur, gauge = q.c.metrics.requeueingDur, q.c.metrics.requeueing
 	case Executing:
 		dur, gauge = q.c.metrics.executingDur, q.c.metrics.executing
 	default:
@@ -389,29 +501,48 @@ func (q *Query) setErr(err error) {
 
 	// Close the ready channel to report that no results
 	// will be sent.
-	close(q.ready)
+	close(q.results)
 }
 
-// setResults will set the results and send them over the ready channel.
-func (q *Query) setResults(_ map[string]flux.Result, md <-chan flux.Metadata) {
-	q.stateMu.Lock()
-	q.metaCh = md
-	q.stateMu.Unlock()
-
-	//q.ready <- r
-	close(q.ready)
+func (q *Query) send(res flux.Result) bool {
+	select {
+	case <-q.currentCtx.Done():
+		return false
+	case q.results <- res:
+		return true
+	}
 }
 
-// tryRequeue attempts to transition the query into the Requeueing state.
-func (q *Query) tryRequeue() bool {
+func (q *Query) pump(exec flux.Query) {
+	defer close(q.results)
+	for {
+		select {
+		case <-q.currentCtx.Done():
+			// Context is done.
+			return
+		case res := <-exec.Results():
+			if ok := q.send(res); !ok {
+				// Unable to send because of a done context.
+				return
+			}
+		}
+	}
+}
+
+// tryCompile attempts to transition the query into the Compiling state.
+func (q *Query) tryCompile() bool {
 	q.stateMu.Lock()
 	defer q.stateMu.Unlock()
 
-	if q.state == Requeueing {
-		// Already in the correct state.
-		return true
-	}
-	return q.transitionTo(Requeueing, Queueing)
+	return q.transitionTo(Compiling, Created)
+}
+
+// tryQueue attempts to transition the query into the Queueing state.
+func (q *Query) tryQueue() bool {
+	q.stateMu.Lock()
+	defer q.stateMu.Unlock()
+
+	return q.transitionTo(Queueing, Compiling)
 }
 
 // tryExec attempts to transition the query into the Executing state.
@@ -419,7 +550,7 @@ func (q *Query) tryExec() bool {
 	q.stateMu.Lock()
 	defer q.stateMu.Unlock()
 
-	return q.transitionTo(Executing, Requeueing, Queueing)
+	return q.transitionTo(Executing, Queueing)
 }
 
 // State is the query state.
@@ -433,18 +564,11 @@ const (
 	// of executing the compiler associated with the query.
 	Compiling
 
-	// Planning indicates that a query spec has been created
-	// from the compiler and the query planner is executing.
-	Planning
-
 	// Queueing indicates the query is waiting inside of the
 	// scheduler to be executed.
+	// TODO(jsternberg): This stage isn't used currently, but
+	// it makes sense to readd this once we have a work queue again.
 	Queueing
-
-	// Requeueing indicates that the query scheduler wanted
-	// to run the query, but not enough resources were available
-	// so it is in the process of waiting again.
-	Requeueing
 
 	// Executing indicates that the query is currently executing.
 	Executing
@@ -471,10 +595,6 @@ func (s State) String() string {
 		return "compiling"
 	case Queueing:
 		return "queueing"
-	case Planning:
-		return "planning"
-	case Requeueing:
-		return "requeueing"
 	case Executing:
 		return "executing"
 	case Errored:
