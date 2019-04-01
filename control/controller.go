@@ -114,10 +114,6 @@ func (c *Controller) Query(ctx context.Context, compiler flux.Compiler) (flux.Qu
 	return prog.Start(ctx, a)
 }
 
-type Stringer interface {
-	String() string
-}
-
 // Queries reports the active queries.
 func (c *Controller) Queries() []*Query {
 	c.queriesMu.RLock()
