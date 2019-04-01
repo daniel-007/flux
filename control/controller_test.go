@@ -14,8 +14,6 @@ import (
 	"github.com/influxdata/flux/memory"
 	"github.com/influxdata/flux/mock"
 	"github.com/influxdata/flux/plan"
-	"github.com/influxdata/flux/plan/plantest"
-	"github.com/influxdata/flux/stdlib/universe"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -58,45 +56,6 @@ func TestController_CompileQuery_Failure(t *testing.T) {
 
 	// Run the query. It should return an error.
 	if _, err := ctrl.Query(context.Background(), compiler); err == nil {
-		t.Fatal("expected error")
-	}
-
-	// Verify the metrics say there are no queries.
-	gauge, err := ctrl.metrics.all.GetMetricWithLabelValues()
-	if err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-
-	metric := &dto.Metric{}
-	if err := gauge.Write(metric); err != nil {
-		t.Fatalf("unexpected error: %s", err)
-	}
-
-	if got, exp := int(metric.Gauge.GetValue()), 0; got != exp {
-		t.Fatalf("unexpected metric value: exp=%d got=%d", exp, got)
-	}
-}
-
-func TestController_PlanQuery_Failure(t *testing.T) {
-	// Register a rule that destroys the integrity of the plan returned by the mock compiler.
-	// The query should fail.
-	config := Config{
-		PPlannerOptions: []plan.PhysicalOption{
-			plan.OnlyPhysicalRules(plantest.CreateCycleRule{Kind: universe.RangeKind}),
-		},
-	}
-	ctrl := New(config)
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer func() {
-		if err := ctrl.Shutdown(ctx); err != nil {
-			t.Fatal(err)
-		}
-		cancel()
-	}()
-
-	// Run the query. It should return an error.
-	if _, err := ctrl.Query(context.Background(), mockCompiler); err == nil {
 		t.Fatal("expected error")
 	}
 

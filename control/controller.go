@@ -61,12 +61,9 @@ type Controller struct {
 }
 
 type Config struct {
-	ConcurrencyQuota     int
-	MemoryBytesQuota     int64
-	ExecutorDependencies execute.Dependencies
-	PPlannerOptions      []plan.PhysicalOption
-	LPlannerOptions      []plan.LogicalOption
-	Logger               *zap.Logger
+	ConcurrencyQuota int
+	MemoryBytesQuota int64
+	Logger           *zap.Logger
 	// MetricLabelKeys is a list of labels to add to the metrics produced by the controller.
 	// The value for a given key will be read off the context.
 	// The context value must be a string or an implementation of the Stringer interface.
@@ -80,9 +77,6 @@ func New(c Config) *Controller {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	pb := plan.PlannerBuilder{}
-	pb.AddLogicalOptions(c.LPlannerOptions...)
-	pb.AddPhysicalOption(c.PPlannerOptions...)
 	ctrl := &Controller{
 		newQueries:           make(chan *Query),
 		queries:              make(map[QueryID]*Query),
@@ -91,8 +85,6 @@ func New(c Config) *Controller {
 		maxConcurrency:       c.ConcurrencyQuota,
 		availableConcurrency: c.ConcurrencyQuota,
 		availableMemory:      c.MemoryBytesQuota,
-		planner:              pb.Build(),
-		executor:             execute.NewExecutor(c.ExecutorDependencies, logger),
 		logger:               logger,
 		metrics:              newControllerMetrics(c.MetricLabelKeys),
 		labelKeys:            c.MetricLabelKeys,
