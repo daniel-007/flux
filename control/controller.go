@@ -23,9 +23,7 @@ import (
 	"time"
 
 	"github.com/influxdata/flux"
-	"github.com/influxdata/flux/execute"
 	"github.com/influxdata/flux/memory"
-	"github.com/influxdata/flux/plan"
 	opentracing "github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -46,9 +44,7 @@ type Controller struct {
 	metrics   *controllerMetrics
 	labelKeys []string
 
-	planner  plan.Planner
-	executor execute.Executor
-	logger   *zap.Logger
+	logger *zap.Logger
 
 	maxConcurrency       int
 	availableConcurrency int
@@ -56,6 +52,7 @@ type Controller struct {
 }
 
 type Config struct {
+	// TODO(jsternberg): Integrate the concurrency and memory bytes quotas.
 	ConcurrencyQuota int
 	MemoryBytesQuota int64
 	Logger           *zap.Logger
@@ -73,16 +70,11 @@ func New(c Config) *Controller {
 		logger = zap.NewNop()
 	}
 	ctrl := &Controller{
-		newQueries:           make(chan *Query),
-		queries:              make(map[QueryID]*Query),
-		queryDone:            make(chan *Query),
-		done:                 make(chan struct{}),
-		maxConcurrency:       c.ConcurrencyQuota,
-		availableConcurrency: c.ConcurrencyQuota,
-		availableMemory:      c.MemoryBytesQuota,
-		logger:               logger,
-		metrics:              newControllerMetrics(c.MetricLabelKeys),
-		labelKeys:            c.MetricLabelKeys,
+		queries:   make(map[QueryID]*Query),
+		done:      make(chan struct{}),
+		logger:    logger,
+		metrics:   newControllerMetrics(c.MetricLabelKeys),
+		labelKeys: c.MetricLabelKeys,
 	}
 	ctrl.shutdownCtx, ctrl.shutdown = context.WithCancel(context.Background())
 	return ctrl
@@ -165,8 +157,6 @@ type Query struct {
 	parentCtx, currentCtx   context.Context
 	parentSpan, currentSpan *span
 	stats                   flux.Statistics
-
-	plan *plan.Spec
 
 	done        sync.Once
 	concurrency int
