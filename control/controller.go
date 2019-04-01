@@ -39,11 +39,10 @@ import (
 // Controller provides a central location to manage all incoming queries.
 // The controller is responsible for compiling, queueing, and executing queries.
 type Controller struct {
-	newQueries    chan *Query
-	queriesMu     sync.RWMutex
-	queries       map[QueryID]*Query
-	queryDone     chan *Query
-	cancelRequest chan QueryID
+	newQueries chan *Query
+	queriesMu  sync.RWMutex
+	queries    map[QueryID]*Query
+	queryDone  chan *Query
 
 	shutdownCtx context.Context
 	shutdown    func()
@@ -88,7 +87,6 @@ func New(c Config) *Controller {
 		newQueries:           make(chan *Query),
 		queries:              make(map[QueryID]*Query),
 		queryDone:            make(chan *Query),
-		cancelRequest:        make(chan QueryID),
 		done:                 make(chan struct{}),
 		maxConcurrency:       c.ConcurrencyQuota,
 		availableConcurrency: c.ConcurrencyQuota,
@@ -176,12 +174,6 @@ func (c *Controller) run() {
 			c.queriesMu.Lock()
 			c.queries[q.id] = q
 			c.queriesMu.Unlock()
-		// Wait for cancel query requests
-		case id := <-c.cancelRequest:
-			c.queriesMu.RLock()
-			q := c.queries[id]
-			c.queriesMu.RUnlock()
-			q.Cancel()
 		// Check if we have been signaled to shutdown.
 		case <-c.shutdownCtx.Done():
 			// We have been signaled to shutdown so drain the queues
