@@ -19,9 +19,6 @@ package control
 
 import (
 	"context"
-	"fmt"
-	"math"
-	"runtime/debug"
 	"sync"
 	"time"
 
@@ -30,10 +27,8 @@ import (
 	"github.com/influxdata/flux/memory"
 	"github.com/influxdata/flux/plan"
 	opentracing "github.com/opentracing/opentracing-go"
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 // Controller provides a central location to manage all incoming queries.
@@ -90,7 +85,6 @@ func New(c Config) *Controller {
 		labelKeys:            c.MetricLabelKeys,
 	}
 	ctrl.shutdownCtx, ctrl.shutdown = context.WithCancel(context.Background())
-	go ctrl.run()
 	return ctrl
 }
 
@@ -122,17 +116,18 @@ func (c *Controller) Queries() []*Query {
 // This will return once the Controller's run loop has been exited and all
 // queries have been finished or until the Context has been canceled.
 func (c *Controller) Shutdown(ctx context.Context) error {
-	// Initiate the shutdown procedure by signaling to the run thread.
-	c.shutdown()
-
-	// Wait for the run loop to exit.
-	select {
-	case <-c.done:
-		return nil
-	case <-ctx.Done():
-		c.CancelAll()
-		return ctx.Err()
-	}
+	return nil
+	// // Initiate the shutdown procedure by signaling to the run thread.
+	// c.shutdown()
+	//
+	// // Wait for the run loop to exit.
+	// select {
+	// case <-c.done:
+	// 	return nil
+	// case <-ctx.Done():
+	// 	c.CancelAll()
+	// 	return ctx.Err()
+	// }
 }
 
 // CancelAll cancels all executing queries.
@@ -142,148 +137,6 @@ func (c *Controller) CancelAll() {
 		q.Cancel()
 	}
 	c.queriesMu.RUnlock()
-}
-
-func (c *Controller) run() {
-	defer close(c.done)
-
-	pq := newPriorityQueue()
-	for {
-		select {
-		// Wait for resources to free
-		case q := <-c.queryDone:
-			c.free(q)
-			c.queriesMu.Lock()
-			delete(c.queries, q.id)
-			c.queriesMu.Unlock()
-		// Wait for new queries
-		case q := <-c.newQueries:
-			pq.Push(q)
-			c.queriesMu.Lock()
-			c.queries[q.id] = q
-			c.queriesMu.Unlock()
-		// Check if we have been signaled to shutdown.
-		case <-c.shutdownCtx.Done():
-			// We have been signaled to shutdown so drain the queues
-			// and exit the for loop.
-			c.drain(pq)
-			return
-		}
-
-		// Peek at head of priority queue
-		q := pq.Peek()
-		if q != nil {
-			pop, err := c.processQuery(q)
-			if pop {
-				pq.Pop()
-			}
-			if err != nil {
-				q.setErr(err)
-			}
-		}
-	}
-}
-
-// drain will continue processing queries from the priority queue and
-// processing done queries.
-func (c *Controller) drain(pq *PriorityQueue) {
-	for {
-		c.queriesMu.RLock()
-		if len(c.queries) == 0 {
-			c.queriesMu.RUnlock()
-			return
-		}
-		c.queriesMu.RUnlock()
-
-		// Wait for resources to free
-		q := <-c.queryDone
-		c.free(q)
-		c.queriesMu.Lock()
-		delete(c.queries, q.id)
-		c.queriesMu.Unlock()
-
-		// Peek at head of priority queue
-		q = pq.Peek()
-		if q != nil {
-			pop, err := c.processQuery(q)
-			if pop {
-				pq.Pop()
-			}
-			if err != nil {
-				go q.setErr(err)
-			}
-		}
-	}
-}
-
-// processQuery move the query through the state machine and returns and errors and if the query should be popped.
-func (c *Controller) processQuery(q *Query) (pop bool, err error) {
-	defer func() {
-		if e := recover(); e != nil {
-			// If a query panicked, always pop it from the queue so we don't
-			// try to reprocess it.
-			pop = true
-
-			// Update the error with information about the query if this is an
-			// error type and create an error if it isn't.
-			switch e := e.(type) {
-			case error:
-				err = errors.Wrap(e, "panic")
-			default:
-				err = fmt.Errorf("panic: %s", e)
-			}
-			if entry := c.logger.Check(zapcore.InfoLevel, "Controller panic"); entry != nil {
-				entry.Stack = string(debug.Stack())
-				entry.Write(zap.Error(err))
-			}
-		}
-	}()
-
-	// Check if we have enough resources
-	if c.check(q) {
-		// Update resource gauges
-		c.consume(q)
-
-		// Remove the query from the queue
-		pop = true
-
-		// Execute query
-		if !q.tryExec() {
-			return true, errors.New("failed to transition query into executing state")
-		}
-		q.alloc = new(memory.Allocator)
-		// TODO: pass the plan to the executor here
-		r, md, err := c.executor.Execute(q.currentCtx, q.plan, q.alloc)
-		if err != nil {
-			return true, errors.Wrap(err, "failed to execute query")
-		}
-		q.setResults(r, md)
-	} else {
-		// update state to queueing
-		if !q.tryRequeue() {
-			return true, errors.New("failed to transition query into requeueing state")
-		}
-	}
-	return pop, nil
-}
-
-func (c *Controller) check(q *Query) bool {
-	return c.availableConcurrency >= q.concurrency && (q.memory == math.MaxInt64 || c.availableMemory >= q.memory)
-}
-func (c *Controller) consume(q *Query) {
-	c.availableConcurrency -= q.concurrency
-
-	if q.memory != math.MaxInt64 {
-		c.availableMemory -= q.memory
-	}
-}
-
-func (c *Controller) free(q *Query) {
-	c.availableConcurrency += q.concurrency
-
-	if q.memory != math.MaxInt64 {
-		c.availableMemory += q.memory
-	}
 }
 
 // PrometheusCollectors satisifies the prom.PrometheusCollector interface.
