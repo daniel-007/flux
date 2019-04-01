@@ -1,23 +1,20 @@
-// Package control controls which resources a query may consume.
+// Package control keeps track of resources and manages queries.
 //
-// The Controller manages the resources available to each query and ensures
-// an optimal use of those resources to execute queries in a timely manner.
-// The controller also maintains the state of a query as it goes through the
-// various stages of execution and is responsible for killing currently
-// executing queries when requested by the user.
+// The Controller manages the resources available to each query by
+// managing the memory allocation and concurrency usage of each query.
+// The Controller will compile a program by using the passed in language
+// and it will start the program using the ResourceManager.
 //
-// The Controller manages when a query is executed. This can be based on
-// anything within the query's requested resources. For example, a basic
-// implementation of the Controller may decide to execute anything with a high
-// priority before anything with a low priority.  The implementation of the
-// Controller will vary and change over time and this package may provide
-// multiple implementations for different controller algorithms.
+// It will guarantee that each program that is started has at least
+// one goroutine that it can use with the dispatcher and it will
+// ensure a minimum amount of memory is available before the program
+// runs.
 //
-// During execution, the Controller manages the resources used by the query and
-// provides observabiility into what resources are being used and by which
-// queries. The Controller also imposes limitations so a query that uses more
-// than its allocated resources or more resources than available on the system
-// will be aborted.
+// Other goroutines and memory usage is at the will of the specific
+// resource strategy that the Controller is using.
+//
+// The Controller also provides visibility into the lifetime of the query
+// and its current resource usage.
 package control
 
 import (
@@ -40,7 +37,7 @@ import (
 )
 
 // Controller provides a central location to manage all incoming queries.
-// The controller is responsible for queueing, planning, and executing queries.
+// The controller is responsible for compiling, queueing, and executing queries.
 type Controller struct {
 	newQueries    chan *Query
 	queriesMu     sync.RWMutex
