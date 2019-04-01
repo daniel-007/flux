@@ -300,8 +300,6 @@ type Query struct {
 
 	c *Controller
 
-	spec flux.Spec
-
 	ready  chan flux.Result
 	metaCh <-chan flux.Metadata
 
@@ -327,15 +325,6 @@ type Query struct {
 // ID reports an ephemeral unique ID for the query.
 func (q *Query) ID() QueryID {
 	return q.id
-}
-
-func (q *Query) Spec() *flux.Spec {
-	return &q.spec
-}
-
-// Concurrency reports the number of goroutines allowed to process the request.
-func (q *Query) Concurrency() int {
-	return q.concurrency
 }
 
 // Cancel will stop the query execution.
